@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Card</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: "Arial", sans-serif;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: row;
+        background-color: #fff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        width: calc(100% - 60px);
+        align-items: center;
+      }
+
+      .qrcode {
+        padding-right: 20px;
+        flex-shrink: 0;
+      }
+
+      .details {
+        flex-grow: 1;
+      }
+
+      .grid {
+        display: block;
+        margin: 0px;
+        padding: 0px;
+      }
+
+      .avatar {
+        display: block;
+        margin-bottom: 10px;
+        margin-left: 0px;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 4px solid #007bff;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .avatar img {
+        width: 100%;
+        height: auto;
+      }
+
+      h1 {
+        font-size: 24px;
+        margin-bottom: 10px;
+        color: #333;
+      }
+
+      p {
+        margin: 8px 0;
+        font-size: 16px;
+      }
+
+      p a {
+        color: #007bff;
+        text-decoration: none;
+      }
+
+      p a:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          flex-direction: column;
+          padding: 30px 15px 15px 30px;
+        }
+
+        .qrcode {
+          margin-right: 0;
+          margin-bottom: 20px;
+        }
+
+        h1 {
+          font-size: 22px;
+        }
+
+        p {
+          font-size: 14px;
+        }
+      }
+
+      .form-container {
+        max-width: 600px;
+        width: 100%;
+        background-color: #fff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        text-align: center;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="url"] {
+        width: calc(100% - 60px);
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 16px;
+      }
+
+      button {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-top: 20px;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      .error {
+        color: red;
+        margin-top: 10px;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid">
+      <img id="avatar" class="avatar hidden" />
+      <div class="container hidden" id="app">
+        <div class="qrcode" id="qrcode"></div>
+        <div class="details" id="details"></div>
+      </div>
+    </div>
+
+    <div class="form-container" id="form-container">
+      <h1>Cartão de Contato Virtual</h1>
+      <form id="contact-form">
+        <input type="text" id="name" placeholder="Nome" required />
+        <input type="email" id="email" placeholder="Email" required />
+        <input type="text" id="phone" placeholder="Telefone" required />
+        <input type="text" id="whatsapp" placeholder="WhatsApp" required />
+        <input type="url" id="linkedin" placeholder="LinkedIn" required />
+        <button type="submit">Criar Cartão</button>
+      </form>
+      <div id="error-message" class="error"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9-1/crypto-js.js"></script>
+
+    <script>
+      // Função para criptografar dados
+      function encryptData(data) {
+        return btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      }
+
+      // Função para descriptografar dados
+      function decryptData(encoded) {
+        return JSON.parse(decodeURIComponent(escape(atob(encoded))));
+      }
+
+      // Função para remover acentos, emojis e caracteres especiais do nome
+      function sanitizeName(name) {
+        return name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\w\s]/gi, "")
+          .replace(/[\uD800-\uDFFF]/g, ""); // Remove emojis
+      }
+
+      // Função para gerar QR Code de vCard
+      function generateQRCode(vCardData) {
+        const qrcodeContainer = document.getElementById("qrcode");
+        qrcodeContainer.innerHTML = ""; // Limpa o conteúdo anterior
+        const qrcode = new QRCode(qrcodeContainer, {
+          text: vCardData,
+          width: 256,
+          height: 256,
+          correctLevel: QRCode.CorrectLevel.H,
+        });
+      }
+
+      // Função para gerar o vCard
+      function generateVCard(data) {
+        const sanitizedName = sanitizeName(data.name);
+        return `BEGIN:VCARD
+VERSION:3.0
+FN:${sanitizedName}
+EMAIL:${data.email}
+TEL;TYPE=WORK,VOICE:+55${data.phone.replace(/\D/g, "")}
+TEL;TYPE=CELL:+55${data.whatsapp.replace(/\D/g, "")}
+URL:${data.linkedin}
+END:VCARD`;
+      }
+
+      // Máscaras para inputs
+      $(document).ready(function () {
+        $("#phone").mask("(00) 0000-00000");
+        $("#whatsapp").mask("(00) 00000-0000");
+      });
+
+      // Validação de formulário e geração do link com criptografia
+      $("#contact-form").on("submit", function (e) {
+        e.preventDefault();
+
+        const name = $("#name").val();
+        const email = $("#email").val();
+        const phone = $("#phone").val();
+        const whatsapp = $("#whatsapp").val();
+        const linkedin = $("#linkedin").val();
+
+        if (!name || !email || !phone || !whatsapp || !linkedin) {
+          $("#error-message").text("Please fill out all fields.");
+          return;
+        }
+
+        const data = { name, email, phone, whatsapp, linkedin };
+        const encrypted = encryptData(data);
+        const link = `${window.location.origin}${window.location.pathname}?contact=${encrypted}`;
+        window.location.href = link; // Redireciona para o link gerado
+      });
+
+      // Função para exibir os detalhes do contato, QR Code e o avatar
+      function renderContactDetails(data) {
+        document.title = `Cartão de Contato de ${data.name}`; // Atualiza o título da página
+
+        const details = document.getElementById("details");
+        details.innerHTML = `
+            <h1>${data.name}</h1>
+            <p><strong>Email:</strong> <a href="mailto:${data.email}">${
+          data.email
+        }</a></p>
+            <p><strong>Telefone:</strong> <a href="tel:+55${data.phone.replace(
+              /\D/g,
+              ""
+            )}">${data.phone}</a></p>
+            <p><strong>WhatsApp:</strong> <a href="https://wa.me/55${data.whatsapp.replace(
+              /\D/g,
+              ""
+            )}" target="_blank">${data.whatsapp}</a></p>
+            <p><strong>LinkedIn:</strong> <a href="${
+              data.linkedin
+            }" target="_blank">${data.linkedin}</a></p>
+        `;
+
+        // Gera o vCard e o QR code
+        const vCard = generateVCard(data);
+        generateQRCode(vCard); // QR code agora contém o vCard
+
+        // Define o avatar a partir do email
+        const avatarEmail = data.email.trim().toLowerCase();
+        const avatarHash = md5(avatarEmail); // Utiliza MD5 para gerar hash do email
+        const avatarUrl = `https://www.gravatar.com/avatar/${avatarHash}?s=120&d=identicon`; // URL da imagem do Gravatar
+        document.getElementById("avatar").src = avatarUrl; // Atualiza a imagem do avatar
+      }
+
+      // Verifica se o token "contact" está presente na URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const contactParam = urlParams.get("contact");
+      if (contactParam) {
+        const decryptedData = decryptData(contactParam);
+        renderContactDetails(decryptedData);
+        document.getElementById("form-container").style.display = "none"; // Esconde o formulário ao exibir detalhes
+        document.getElementById("app").classList.remove("hidden"); // Mostra o cartão de contato
+        document.getElementById("avatar").classList.remove("hidden"); // Mostra o cartão de contato
+      }
+
+      // Função para calcular o hash MD5
+      function md5(string) {
+        var md5 = CryptoJS.MD5(string);
+        return md5.toString();
+      }
+    </script>
+  </body>
+</html>
